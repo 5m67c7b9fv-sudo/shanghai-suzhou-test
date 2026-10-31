@@ -26,7 +26,7 @@ jobs:
 
       - name: Extract website ZIP
         run: |
-          python3 - &lt;&lt;'PY'
+          python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
           import shutil
