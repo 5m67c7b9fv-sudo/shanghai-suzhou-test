@@ -1,0 +1,67 @@
+name: Deploy ZIP to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: $&#123;&#123; steps.deployment.outputs.page_url &#125;&#125;
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract website ZIP
+        run: |
+          python3 - &lt;&lt;'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import shutil
+
+          archives = sorted(Path(".").glob("*.zip"))
+          if len(archives) != 1:
+              raise SystemExit("Please upload exactly one ZIP file to the repository root.")
+
+          destination = Path("_site")
+          if destination.exists():
+              shutil.rmtree(destination)
+          destination.mkdir()
+
+          with ZipFile(archives[0]) as archive:
+              for item in archive.infolist():
+                  path = Path(item.filename)
+                  if path.is_absolute() or ".." in path.parts:
+                      raise SystemExit("Unsafe ZIP path.")
+              archive.extractall(destination)
+
+          if not (destination / "index.html").is_file():
+              raise SystemExit("index.html must be at the ZIP root.")
+
+          (destination / ".nojekyll").touch()
+          print("Website extracted successfully.")
+          PY
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
